@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>{% block title %}ORA·MIGRATE{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}"/>
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+<div id="app">
+  {% block header %}
+  <header>
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 16 16"><path d="M8 1 L14 4 L14 12 L8 15 L2 12 L2 4 Z"/></svg>
+      </div>
+      <span class="logo-text">ORA<span>MIGRATE</span></span>
+    </div>
+
+    <div class="header-stats">
+      <div class="hstat">
+        <div class="status-dot dot-green pulsing"></div>
+        <div>
+          <div class="hstat-val" id="h-throughput">—</div>
+          <div class="hstat-label">throughput</div>
+        </div>
+      </div>
+      <div class="hstat">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <circle cx="6" cy="6" r="5" stroke="#f0a500" stroke-width="1.2"/>
+          <path d="M6 3v3l2 2" stroke="#f0a500" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        <div>
+          <div class="hstat-val" id="h-uptime">—</div>
+          <div class="hstat-label">uptime</div>
+        </div>
+      </div>
+      <div class="hstat">
+        <div class="hstat-val" id="h-workers">—</div>
+        <div class="hstat-label">workers</div>
+      </div>
+      <div class="hstat">
+        <div class="hstat-val" id="h-rows">—</div>
+        <div class="hstat-label">rows migrated</div>
+      </div>
+    </div>
+  </header>
+  {% endblock %}
+
+  {% block nav %}{% endblock %}
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+{% block modals %}{% endblock %}
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

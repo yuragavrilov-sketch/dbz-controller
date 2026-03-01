@@ -1,0 +1,753 @@
+{% extends "base.html" %}
+
+{% block title %}ORA·MIGRATE — Coordinator{% endblock %}
+
+{% block nav %}
+<nav>
+  <button class="tab-btn active" data-tab="jobs">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+      <rect x="1" y="1" width="4" height="4" rx="1"/>
+      <rect x="7" y="1" width="4" height="4" rx="1"/>
+      <rect x="1" y="7" width="4" height="4" rx="1"/>
+      <rect x="7" y="7" width="4" height="4" rx="1"/>
+    </svg>
+    Jobs <span class="tab-badge" id="badge-jobs">—</span>
+  </button>
+  <button class="tab-btn" data-tab="workers">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <circle cx="6" cy="4" r="2.5" stroke="currentColor" stroke-width="1.2"/>
+      <path d="M1 10.5c0-2.5 2.2-4 5-4s5 1.5 5 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+    </svg>
+    Workers <span class="tab-badge" id="badge-workers">—</span>
+  </button>
+  <button class="tab-btn" data-tab="connectors">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <path d="M2 6h2M8 6h2M4 4v4M8 4v4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+      <circle cx="4" cy="6" r="1.5" stroke="currentColor" stroke-width="1.2"/>
+      <circle cx="8" cy="6" r="1.5" stroke="currentColor" stroke-width="1.2"/>
+    </svg>
+    Connectors <span class="tab-badge" id="badge-connectors">—</span>
+  </button>
+  <button class="tab-btn" data-tab="connections">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <circle cx="2.5" cy="6" r="1.5" stroke="currentColor" stroke-width="1.2"/>
+      <circle cx="9.5" cy="6" r="1.5" stroke="currentColor" stroke-width="1.2"/>
+      <line x1="4" y1="6" x2="8" y2="6" stroke="currentColor" stroke-width="1.2"/>
+    </svg>
+    Connections <span class="tab-badge" id="badge-conn">—</span>
+  </button>
+  <button class="tab-btn" data-tab="logs">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <rect x="1" y="1.5" width="10" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+      <line x1="3.5" y1="4.5" x2="8.5" y2="4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+      <line x1="3.5" y1="7" x2="6.5" y2="7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+    </svg>
+    Logs
+  </button>
+</nav>
+{% endblock %}
+
+{% block content %}
+
+{# ── JOBS TAB ── #}
+<div class="tab-panel active" id="tab-jobs">
+
+  <div class="stat-row" id="stats-row">
+    <div class="stat-block amber">
+      <div class="stat-label">Rows Migrated</div>
+      <div class="stat-value amber" id="stat-rows">—</div>
+      <div class="stat-sub">total across all jobs</div>
+    </div>
+    <div class="stat-block green">
+      <div class="stat-label">Active Jobs</div>
+      <div class="stat-value green" id="stat-active">—</div>
+      <div class="stat-sub" id="stat-active-sub">running now</div>
+    </div>
+    <div class="stat-block cyan">
+      <div class="stat-label">Workers Online</div>
+      <div class="stat-value cyan" id="stat-workers">—</div>
+      <div class="stat-sub" id="stat-workers-sub">—</div>
+    </div>
+    <div class="stat-block red">
+      <div class="stat-label">State DB Size</div>
+      <div class="stat-value red" id="stat-pg">—</div>
+      <div class="stat-sub">PostgreSQL coordinator</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <span class="section-title">Migration Jobs</span>
+      <div class="section-line"></div>
+      <button class="btn btn-amber" id="btn-new-job">+ New Job</button>
+    </div>
+    <div class="jobs-grid" id="jobs-grid">
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+    </div>
+  </div>
+
+</div>
+
+{# ── WORKERS TAB ── #}
+<div class="tab-panel" id="tab-workers">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Worker Containers</span>
+      <div class="btn-group">
+        <button class="btn btn-ghost btn-sm">Scale Up</button>
+        <button class="btn btn-ghost btn-sm">Scale Down</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Worker</th>
+            <th>Container</th>
+            <th>Status</th>
+            <th>Job / Chunk</th>
+            <th>CPU</th>
+            <th>MEM (MB)</th>
+            <th>Rows/s</th>
+            <th>Uptime</th>
+            <th>Heartbeat</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="workers-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# ── CONNECTIONS TAB ── #}
+<div class="tab-panel" id="tab-connections">
+
+  {# DB Connections #}
+  <div class="section">
+    <div class="section-head">
+      <span class="section-title">Database Connections</span>
+      <div class="section-line"></div>
+      <div class="btn-group">
+        <button class="btn btn-amber btn-sm" onclick="openAddDbModal('SOURCE')">+ Add Source DB</button>
+        <button class="btn btn-ghost btn-sm" onclick="openAddDbModal('TARGET')">+ Add Target DB</button>
+      </div>
+    </div>
+    <div class="conn-grid" id="db-conn-grid">
+      <div class="conn-empty" id="db-conn-empty">No database connections configured.</div>
+    </div>
+  </div>
+
+  {# Kafka Connections #}
+  <div class="section">
+    <div class="section-head">
+      <span class="section-title">Kafka</span>
+      <div class="section-line"></div>
+      <button class="btn btn-ghost btn-sm" onclick="openAddKafkaModal()">+ Add Kafka</button>
+    </div>
+    <div class="conn-grid" id="kafka-conn-grid">
+      <div class="conn-empty" id="kafka-conn-empty">No Kafka connections configured.</div>
+    </div>
+  </div>
+
+  {# Kafka Connect Connections #}
+  <div class="section">
+    <div class="section-head">
+      <span class="section-title">Kafka Connect</span>
+      <div class="section-line"></div>
+      <button class="btn btn-ghost btn-sm" onclick="openAddKafkaConnectModal()">+ Add Kafka Connect</button>
+    </div>
+    <div class="conn-grid" id="kafka-connect-grid">
+      <div class="conn-empty" id="kafka-connect-empty">No Kafka Connect connections configured.</div>
+    </div>
+  </div>
+
+</div>
+
+{# ── CONNECTORS TAB ── #}
+<div class="tab-panel" id="tab-connectors">
+  <div class="section">
+    <div class="section-head">
+      <span class="section-title">Debezium Connectors</span>
+      <div class="section-line"></div>
+      <button class="btn btn-ghost btn-sm" onclick="refreshAllConnectors()">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" style="margin-right:3px">
+          <path d="M10 6A4 4 0 1 1 6 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          <path d="M6 2l2-2M6 2l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Refresh All
+      </button>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="connectors-table">
+          <thead>
+            <tr>
+              <th>Connector Name</th>
+              <th>Status</th>
+              <th>Job</th>
+              <th>Table</th>
+              <th>Created</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="connectors-tbody">
+            <tr>
+              <td colspan="6">
+                <div class="connectors-empty">Loading connectors…</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── LOGS TAB ── #}
+<div class="tab-panel" id="tab-logs">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">System Log</span>
+      <div class="btn-group">
+        <button class="btn btn-ghost btn-sm" id="btn-clear-log">Clear</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="log-panel" id="log-panel"></div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block modals %}
+
+{# ── Create Job Wizard Modal ── #}
+<div class="modal-backdrop" id="create-modal" role="dialog" aria-modal="true" aria-labelledby="wizard-title">
+  <div class="modal modal-wizard">
+
+    {# Wizard header #}
+    <div class="modal-head">
+      <span class="modal-title" id="wizard-title">New Migration Job</span>
+      <button class="modal-close" id="modal-close" aria-label="Close">✕</button>
+    </div>
+
+    {# Step indicator #}
+    <div class="wizard-steps" id="wizard-steps">
+      <div class="wizard-step-item active" id="wstep-1">
+        <div class="wizard-step-num">1</div>
+        <div class="wizard-step-label">Настройка</div>
+      </div>
+      <div class="wizard-step-item" id="wstep-2">
+        <div class="wizard-step-num">2</div>
+        <div class="wizard-step-label">Проверки</div>
+      </div>
+      <div class="wizard-step-item" id="wstep-3">
+        <div class="wizard-step-num">3</div>
+        <div class="wizard-step-label">Объекты</div>
+      </div>
+      <div class="wizard-step-item" id="wstep-4">
+        <div class="wizard-step-num">4</div>
+        <div class="wizard-step-label">Коннектор</div>
+      </div>
+    </div>
+
+    {# Wizard body #}
+    <div class="modal-body">
+
+      {# ── STEP 1: Job Configuration ── #}
+      <div class="wizard-step-content active" id="wizard-content-1">
+
+        <div class="form-row">
+          <div class="field full">
+            <label for="f-name">Job Name <span class="label-required">*</span></label>
+            <input type="text" id="f-name" placeholder="e.g. PROD_ORDERS → DWH" autocomplete="off"/>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="field">
+            <label for="f-source">Source Connection <span class="label-required">*</span></label>
+            <select id="f-source">
+              <option value="">— select source DB —</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="f-target">Target Connection <span class="label-required">*</span></label>
+            <select id="f-target">
+              <option value="">— select target DB —</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="field">
+            <label for="f-source-schema">Source Schema <span class="label-required">*</span></label>
+            <select id="f-source-schema" onchange="onSourceSchemaChange()" disabled>
+              <option value="">— select source first —</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="f-source-table">Source Table <span class="label-required">*</span></label>
+            <select id="f-source-table" disabled>
+              <option value="">— select schema first —</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="field">
+            <label for="f-target-schema">Target Schema <span class="label-hint">(optional)</span></label>
+            <select id="f-target-schema" onchange="onTargetSchemaChange()" disabled>
+              <option value="">— select target first —</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="f-target-table">Target Table <span class="label-hint">(optional)</span></label>
+            <select id="f-target-table" disabled>
+              <option value="">— same as source —</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="field">
+            <label for="f-mode">Migration Mode <span class="label-required">*</span></label>
+            <select id="f-mode">
+              <option value="bulk_cdc">BULK + CDC (recommended)</option>
+              <option value="bulk_only">BULK only</option>
+              <option value="cdc_only">CDC only</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="f-strategy">Chunk Strategy</label>
+            <select id="f-strategy">
+              <option value="rowid">ROWID (default, heap tables)</option>
+              <option value="pk_range">PK Range (numeric PK)</option>
+              <option value="date_range">Date Range (date PK)</option>
+              <option value="hash">Hash (composite PK)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="field">
+            <label for="f-chunk">Chunk Size (rows)</label>
+            <input type="number" id="f-chunk" value="10000" min="100"/>
+          </div>
+          <div class="field"></div>
+        </div>
+
+        <div class="form-row">
+          <div class="field full">
+            <label for="f-filter">Filter Clause <span class="label-hint">(optional WHERE condition for bulk)</span></label>
+            <input type="text" id="f-filter" placeholder="WHERE created_at > DATE '2024-01-01'" autocomplete="off"/>
+          </div>
+        </div>
+
+        <div class="modal-test-result" id="job-create-error" style="display:none"></div>
+
+      </div>{# /step-1 #}
+
+      {# ── STEP 2: Pre-flight Checks ── #}
+      <div class="wizard-step-content" id="wizard-content-2">
+
+        <div id="preflight-loading" class="preflight-loading" style="display:none">
+          <div class="preflight-spinner"></div>
+          <span>Выполняются проверки…</span>
+        </div>
+
+        <div id="preflight-results" style="display:none">
+          <div id="preflight-summary" class="preflight-summary"></div>
+          <div id="preflight-notice" class="preflight-notice" style="display:none"></div>
+          <table class="preflight-table">
+            <thead>
+              <tr>
+                <th>Проверка</th>
+                <th>Статус</th>
+                <th>Детали</th>
+              </tr>
+            </thead>
+            <tbody id="preflight-tbody"></tbody>
+          </table>
+        </div>
+
+        <div id="preflight-empty" style="color:var(--text2);font-family:var(--mono);font-size:12px;padding:24px 0">
+          Нажмите "Запустить проверки" для начала pre-flight анализа.
+        </div>
+
+      </div>{# /step-2 #}
+
+      {# ── STEP 3: Target Objects Management ── #}
+      <div class="wizard-step-content" id="wizard-content-3">
+
+        <div id="objects-loading" class="preflight-loading" style="display:none">
+          <div class="preflight-spinner"></div>
+          <span>Загрузка объектов target…</span>
+        </div>
+
+        <div id="objects-content" style="display:none">
+
+          {# Indexes section #}
+          <div class="objects-section" id="obj-section-indexes">
+            <div class="objects-section-title">
+              Индексы
+              <span class="objects-section-count" id="obj-count-indexes">0</span>
+            </div>
+            <table class="objects-table">
+              <thead>
+                <tr>
+                  <th style="width:32px"></th>
+                  <th>Имя</th>
+                  <th>Тип</th>
+                  <th>Уникальность</th>
+                  <th>Статус</th>
+                  <th>Действие</th>
+                </tr>
+              </thead>
+              <tbody id="obj-tbody-indexes"></tbody>
+            </table>
+          </div>
+
+          {# Constraints section #}
+          <div class="objects-section" id="obj-section-constraints">
+            <div class="objects-section-title">
+              Констрейнты
+              <span class="objects-section-count" id="obj-count-constraints">0</span>
+            </div>
+            <table class="objects-table">
+              <thead>
+                <tr>
+                  <th style="width:32px"></th>
+                  <th>Имя</th>
+                  <th>Тип</th>
+                  <th>Статус</th>
+                  <th>Действие</th>
+                </tr>
+              </thead>
+              <tbody id="obj-tbody-constraints"></tbody>
+            </table>
+          </div>
+
+          {# Triggers section #}
+          <div class="objects-section" id="obj-section-triggers">
+            <div class="objects-section-title">
+              Триггеры
+              <span class="objects-section-count" id="obj-count-triggers">0</span>
+            </div>
+            <table class="objects-table">
+              <thead>
+                <tr>
+                  <th style="width:32px"></th>
+                  <th>Имя</th>
+                  <th>Timing</th>
+                  <th>Events</th>
+                  <th>Статус</th>
+                  <th>Действие</th>
+                </tr>
+              </thead>
+              <tbody id="obj-tbody-triggers"></tbody>
+            </table>
+          </div>
+
+          <div class="objects-action-bar">
+            <button class="btn btn-amber btn-sm" onclick="applySelectedActions()" id="btn-apply-actions">
+              Применить выбранные действия
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="loadTargetObjects()">
+              🔄 Обновить список
+            </button>
+            <span id="objects-apply-status" style="font-family:var(--mono);font-size:11px;color:var(--text2)"></span>
+          </div>
+
+          <div class="objects-apply-result" id="objects-apply-result"></div>
+
+        </div>
+
+        <div id="objects-empty" style="color:var(--text2);font-family:var(--mono);font-size:12px;padding:24px 0">
+          Объекты будут загружены автоматически при переходе на этот шаг.
+        </div>
+
+      </div>{# /step-3 #}
+
+      {# ── STEP 4: Debezium Connector ── #}
+      <div class="wizard-step-content" id="wizard-content-4">
+
+        <div class="form-row">
+          <div class="field full">
+            <label for="f-kafka-connect">Kafka Connect Connection <span class="label-hint">(REST API, port 8083)</span></label>
+            <select id="f-kafka-connect">
+              <option value="">— select Kafka Connect —</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="field full">
+            <label for="f-kafka-broker">Kafka Broker Connection <span class="label-hint">(bootstrap servers, port 9092)</span></label>
+            <select id="f-kafka-broker">
+              <option value="">— select Kafka Broker —</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="field">
+            <label for="f-topic-prefix">Topic Prefix</label>
+            <input type="text" id="f-topic-prefix" value="migration" autocomplete="off"/>
+          </div>
+          <div class="field">
+            <label for="f-scn-cutoff">SCN Cutoff <span class="label-hint">(optional, auto if empty)</span></label>
+            <input type="number" id="f-scn-cutoff" placeholder="auto" autocomplete="off"/>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="field full">
+            <div class="connector-preview-label">Preview имени коннектора</div>
+            <div class="connector-preview" id="connector-name-preview">—</div>
+          </div>
+        </div>
+
+        <div class="modal-test-result" id="wizard-create-error" style="display:none"></div>
+
+      </div>{# /step-4 #}
+
+    </div>{# /modal-body #}
+
+    {# Wizard footer — кнопки меняются в зависимости от шага #}
+    <div class="wizard-foot" id="wizard-foot">
+      <div class="wizard-foot-left" id="wizard-foot-left">
+        {# Динамически заполняется JS #}
+      </div>
+      <div class="wizard-foot-right" id="wizard-foot-right">
+        {# Динамически заполняется JS #}
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{# ── Add/Edit DB Connection Modal ── #}
+<div class="modal-backdrop" id="modal-db-conn" role="dialog" aria-modal="true">
+  <div class="modal modal-lg">
+    <div class="modal-head">
+      <span class="modal-title" id="modal-db-title">Add Database Connection</span>
+      <button class="modal-close" onclick="closeModal('modal-db-conn')" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="db-conn-id"/>
+      <div class="form-row">
+        <div class="field full">
+          <label for="db-name">Connection Name <span class="label-required">*</span></label>
+          <input type="text" id="db-name" placeholder="e.g. PROD_DB" autocomplete="off" required/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="db-role">Role <span class="label-required">*</span></label>
+          <select id="db-role">
+            <option value="SOURCE">SOURCE DB</option>
+            <option value="TARGET">TARGET DB</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="db-type">DB Type <span class="label-required">*</span></label>
+          <select id="db-type" onchange="onDbTypeChange()">
+            <option value="oracle">Oracle</option>
+            <option value="postgresql">PostgreSQL</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="db-host">Host <span class="label-required">*</span></label>
+          <input type="text" id="db-host" placeholder="hostname or IP" autocomplete="off" required/>
+        </div>
+        <div class="field">
+          <label for="db-port">Port <span class="label-required">*</span></label>
+          <input type="number" id="db-port" value="1521" min="1" max="65535" required/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="db-database" id="db-database-label">SID <span class="label-hint" id="db-database-hint">(Oracle, optional if Service Name set)</span><span class="label-required" id="db-database-required" style="display:none">*</span></label>
+          <input type="text" id="db-database" placeholder="ORCL" autocomplete="off"/>
+        </div>
+        <div class="field" id="db-service-name-field">
+          <label for="db-service-name">Service Name <span class="label-hint">(Oracle, optional if SID set)</span></label>
+          <input type="text" id="db-service-name" placeholder="orcl.example.com" autocomplete="off"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="db-username">Username <span class="label-required">*</span></label>
+          <input type="text" id="db-username" placeholder="migrator" autocomplete="off" required/>
+        </div>
+        <div class="field">
+          <label for="db-password">Password <span class="label-required">*</span></label>
+          <input type="password" id="db-password" placeholder="••••••••" required/>
+        </div>
+      </div>
+      <div class="form-row" id="db-ssl-mode-row" style="display:none">
+        <div class="field">
+          <label for="db-ssl-mode">SSL Mode <span class="label-hint">(PostgreSQL)</span></label>
+          <select id="db-ssl-mode">
+            <option value="">disable</option>
+            <option value="require">require</option>
+            <option value="verify-ca">verify-ca</option>
+            <option value="verify-full">verify-full</option>
+          </select>
+        </div>
+        <div class="field"></div>
+      </div>
+      <div class="modal-test-result" id="db-test-result"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-db-conn')">Cancel</button>
+      <button class="btn btn-ghost" onclick="testDbConnectionModal()">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" style="margin-right:3px">
+          <circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2"/>
+          <path d="M4 6l1.5 1.5L8 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Test Connection
+      </button>
+      <button class="btn btn-amber" onclick="saveDbConnection()">Save</button>
+    </div>
+  </div>
+</div>
+
+{# ── Add/Edit Kafka Connection Modal ── #}
+<div class="modal-backdrop" id="modal-kafka-conn" role="dialog" aria-modal="true">
+  <div class="modal modal-lg">
+    <div class="modal-head">
+      <span class="modal-title" id="modal-kafka-title">Add Kafka Connection</span>
+      <button class="modal-close" onclick="closeModal('modal-kafka-conn')" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="kafka-conn-id"/>
+      <div class="form-row">
+        <div class="field full">
+          <label for="kafka-name">Connection Name <span class="label-required">*</span></label>
+          <input type="text" id="kafka-name" placeholder="e.g. PROD_KAFKA" autocomplete="off" required/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field full">
+          <label for="kafka-bootstrap">Bootstrap Servers <span class="label-required">*</span></label>
+          <input type="text" id="kafka-bootstrap" placeholder="kafka1:9092,kafka2:9092" autocomplete="off" required/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="kafka-protocol">Security Protocol</label>
+          <select id="kafka-protocol" onchange="onKafkaProtocolChange()">
+            <option value="PLAINTEXT">PLAINTEXT</option>
+            <option value="SSL">SSL</option>
+            <option value="SASL_PLAINTEXT">SASL_PLAINTEXT</option>
+            <option value="SASL_SSL">SASL_SSL</option>
+          </select>
+        </div>
+        <div class="field" id="kafka-sasl-mechanism-field" style="display:none">
+          <label for="kafka-sasl-mechanism">SASL Mechanism</label>
+          <select id="kafka-sasl-mechanism">
+            <option value="PLAIN">PLAIN</option>
+            <option value="SCRAM-SHA-256">SCRAM-SHA-256</option>
+            <option value="SCRAM-SHA-512">SCRAM-SHA-512</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row" id="kafka-sasl-creds-row" style="display:none">
+        <div class="field">
+          <label for="kafka-sasl-username">SASL Username</label>
+          <input type="text" id="kafka-sasl-username" placeholder="username" autocomplete="off"/>
+        </div>
+        <div class="field">
+          <label for="kafka-sasl-password">SASL Password</label>
+          <input type="password" id="kafka-sasl-password" placeholder="••••••••"/>
+        </div>
+      </div>
+      <div class="modal-test-result" id="kafka-test-result"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-kafka-conn')">Cancel</button>
+      <button class="btn btn-ghost" onclick="testKafkaConnectionModal()">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" style="margin-right:3px">
+          <circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2"/>
+          <path d="M4 6l1.5 1.5L8 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Test Connection
+      </button>
+      <button class="btn btn-amber" onclick="saveKafkaConnection()">Save</button>
+    </div>
+  </div>
+</div>
+
+{# ── Add/Edit Kafka Connect Modal ── #}
+<div class="modal-backdrop" id="modal-kafka-connect-conn" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title" id="modal-kafka-connect-title">Add Kafka Connect</span>
+      <button class="modal-close" onclick="closeModal('modal-kafka-connect-conn')" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="kafka-connect-id"/>
+      <div class="form-row">
+        <div class="field full">
+          <label for="kc-name">Connection Name <span class="label-required">*</span></label>
+          <input type="text" id="kc-name" placeholder="e.g. PROD_CONNECT" autocomplete="off" required/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field full">
+          <label for="kc-url">REST API URL <span class="label-required">*</span></label>
+          <input type="text" id="kc-url" placeholder="http://kafka-connect:8083" autocomplete="off" required/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="kc-username">Username <span class="label-hint">(optional)</span></label>
+          <input type="text" id="kc-username" placeholder="admin" autocomplete="off"/>
+        </div>
+        <div class="field">
+          <label for="kc-password">Password <span class="label-hint">(optional)</span></label>
+          <input type="password" id="kc-password" placeholder="••••••••"/>
+        </div>
+      </div>
+      <div class="modal-test-result" id="kc-test-result"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-kafka-connect-conn')">Cancel</button>
+      <button class="btn btn-ghost" onclick="testKafkaConnectModal()">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" style="margin-right:3px">
+          <circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2"/>
+          <path d="M4 6l1.5 1.5L8 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Test Connection
+      </button>
+      <button class="btn btn-amber" onclick="saveKafkaConnectConnection()">Save</button>
+    </div>
+  </div>
+</div>
+
+{# ── Confirm Delete Modal ── #}
+<div class="modal-backdrop" id="modal-confirm-delete" role="dialog" aria-modal="true">
+  <div class="modal modal-sm">
+    <div class="modal-head">
+      <span class="modal-title">Confirm Delete</span>
+      <button class="modal-close" onclick="closeModal('modal-confirm-delete')" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-text" id="confirm-delete-text">Are you sure you want to delete this connection?</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-confirm-delete')">Cancel</button>
+      <button class="btn btn-danger" id="confirm-delete-btn">Delete</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

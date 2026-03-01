@@ -1,0 +1,8 @@
+Flask>=2.3.0
+Flask-SQLAlchemy>=3.0.0
+Flask-Migrate>=4.0.0
+psycopg2-binary>=2.9.0
+oracledb>=2.0.0
+kafka-python>=2.0.2
+requests>=2.31.0
+python-dotenv>=1.0.0
