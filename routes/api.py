@@ -3,8 +3,52 @@ import uuid
 import random
 from datetime import datetime
 from flask import Blueprint, jsonify, request, current_app
+import oracledb
 
 api_bp = Blueprint("api", __name__)
+
+
+def _get_oracle_boundary(source_conn, source_table_full: str):
+    """
+    Фиксирует границу миграции в source Oracle:
+    - CURRENT_SCN из V$DATABASE
+    - MAX(ROWID) из таблицы
+    """
+    if not source_table_full:
+        raise ValueError("source_table is empty")
+
+    table_name = source_table_full.strip().upper()
+    if "." in table_name:
+        _, table_only = table_name.split(".", 1)
+    else:
+        table_only = table_name
+
+    dsn = oracledb.makedsn(
+        source_conn.host,
+        int(source_conn.port or 1521),
+        service_name=(source_conn.service_name or source_conn.database or None),
+    )
+
+    conn = oracledb.connect(
+        user=source_conn.username,
+        password=source_conn.password,
+        dsn=dsn,
+    )
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT CURRENT_SCN FROM V$DATABASE")
+            row = cur.fetchone()
+            if not row or row[0] is None:
+                raise RuntimeError("Failed to fetch CURRENT_SCN from source Oracle")
+            scn_cutoff = int(row[0])
+
+            cur.execute(f"SELECT MAX(ROWID) FROM {table_name}")
+            row = cur.fetchone()
+            max_rowid = row[0] if row else None
+
+        return scn_cutoff, (str(max_rowid) if max_rowid else None)
+    finally:
+        conn.close()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Mock state — Jobs & Workers remain in-memory
@@ -194,6 +238,9 @@ def create_job():
         except (ValueError, TypeError):
             return jsonify({"ok": False, "error": "chunk_size must be an integer"}), 400
 
+        # Фиксируем SCN/max_rowid на этапе создания job
+        scn_cutoff, max_rowid = _get_oracle_boundary(source_conn, data["source_table"])
+
         job = MigrationJob(
             name            = data["name"].strip(),
             source_conn_id  = int(data["source_conn_id"]),
@@ -205,6 +252,8 @@ def create_job():
             migration_mode  = migration_mode,
             filter_clause   = (data.get("filter_clause") or "").strip() or None,
             status          = "pending",
+            scn_cutoff      = scn_cutoff,
+            max_rowid       = max_rowid,
         )
         db.session.add(job)
         db.session.commit()
@@ -1617,6 +1666,10 @@ def create_connector():
             return jsonify({"error": f"Kafka connection id={data['kafka_conn_id']} not found"}), 404
 
         scn_cutoff   = data.get("scn_cutoff") or job.scn_cutoff
+        if scn_cutoff is None:
+            return jsonify({
+                "error": "SCN cutoff is required. Recreate job with boundary capture before creating connector."
+            }), 400
         topic_prefix = data.get("topic_prefix", "migration")
 
         # Разбираем source_table: SCHEMA.TABLE
@@ -1641,9 +1694,9 @@ def create_connector():
             "database.dbname":              source_conn.service_name or source_conn.database or "",
             "topic.prefix":                 topic_prefix,
             "table.include.list":           f"{source_schema}.{source_table}",
-            "snapshot.mode":                "schema_only",
+            "snapshot.mode":                "never",
             "log.mining.strategy":          "online_catalog",
-            "log.mining.start.scn":         str(scn_cutoff) if scn_cutoff else "0",
+            "log.mining.start.scn":         str(scn_cutoff),
             "heartbeat.interval.ms":        "30000",
             "schema.history.internal.kafka.bootstrap.servers": kafka_conn.bootstrap_servers,
             "schema.history.internal.kafka.topic":             f"schema-history.migration.{job.id}",

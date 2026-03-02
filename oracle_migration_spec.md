@@ -96,7 +96,7 @@ Oracle Target используется **только для бизнес-дан
 | Шаг | Действие |
 |-----|----------|
 | **1. Фиксация границы** | Атомарно в одной транзакции Oracle source: `SELECT CURRENT_SCN FROM V$DATABASE` и `SELECT MAX(ROWID) FROM <table>`. Сохранить в `migration_boundaries`. Это точка разреза: до неё — bulk, после — CDC. |
-| **2. Запуск Debezium** | Создать коннектор через Kafka Connect REST API: `snapshot.mode=no_data`, `offset.scn=SCN_cutoff`. Debezium начинает стримить изменения в Kafka начиная с зафиксированного SCN. |
+| **2. Запуск Debezium** | Создать коннектор через Kafka Connect REST API: `snapshot.mode=never`, `log.mining.start.scn=SCN_cutoff`. Debezium начинает стримить изменения в Kafka начиная с зафиксированного SCN. |
 | **3. Ожидание старта** | Polling статуса коннектора до `RUNNING`. Таймаут 60 сек. Только после `RUNNING` продолжать — иначе возможна потеря событий. |
 | **4. Нарезка чанков** | Создать ROWID-чанки через `DBMS_PARALLEL_EXECUTE.CREATE_CHUNKS_BY_ROWID`. Только чанки с `ROWID <= max_rowid`. Записать в `migration_chunks` со статусом `pending`. |
 | **4а. Построение SQL-шаблонов** | Вызвать `QueryTemplateCache.build_and_save()`: получить метаданные колонок из Oracle source (ALL_TAB_COLUMNS), исключить виртуальные колонки, построить все 4 шаблона и сохранить в `migration_jobs.config`. |
