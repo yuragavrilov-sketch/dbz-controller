@@ -750,4 +750,23 @@
   </div>
 </div>
 
+{# ── Preview Debezium Connector Modal ── #}
+<div class="modal-backdrop" id="modal-preview-connector" role="dialog" aria-modal="true">
+  <div class="modal" style="max-width: 800px;">
+    <div class="modal-head">
+      <span class="modal-title">Preview Debezium Connector Config</span>
+      <button class="modal-close" onclick="closeModal('modal-preview-connector')" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p>Please review the generated configuration before creating the connector:</p>
+      <pre><code id="preview-connector-config" style="display: block; padding: 12px; background: var(--bg0); color: var(--text0); border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; font-size: 12px; font-family: var(--mono);"></code></pre>
+      <div class="modal-test-result" id="preview-connector-error"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('modal-preview-connector')">Cancel</button>
+      <button class="btn btn-amber" id="btn-confirm-connector" onclick="confirmCreateConnector()">Confirm</button>
+    </div>
+  </div>
+</div>
+
 {% endblock %}

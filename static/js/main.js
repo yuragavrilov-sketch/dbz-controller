@@ -1637,28 +1637,65 @@ async function createJobWithConnector() {
     const topicPrefix = document.getElementById('f-topic-prefix')?.value || 'migration';
     const scnCutoff   = document.getElementById('f-scn-cutoff')?.value || null;
 
-    const connR = await fetch('/api/connectors', {
+    const payload = {
+      job_id:                jobId,
+      kafka_connect_conn_id: parseInt(kcId, 10),
+      kafka_conn_id:         kafkaBrokerIdInt,
+      source_conn_id:        wizardState.jobData.source_conn_id,
+      topic_prefix:          topicPrefix,
+      scn_cutoff:            scnCutoff ? parseInt(scnCutoff, 10) : null,
+    };
+
+    // Fetch preview
+    const previewPayload = { ...payload, preview: true };
+    const previewR = await fetch('/api/connectors', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        job_id:                jobId,
-        kafka_connect_conn_id: parseInt(kcId, 10),
-        kafka_conn_id:         kafkaBrokerIdInt,
-        source_conn_id:        wizardState.jobData.source_conn_id,
-        topic_prefix:          topicPrefix,
-        scn_cutoff:            scnCutoff ? parseInt(scnCutoff, 10) : null,
-      }),
+      body: JSON.stringify(previewPayload),
     });
-    const connData = await connR.json();
-    if (!connR.ok) throw new Error(connData.error || `HTTP ${connR.status}`);
+    const previewData = await previewR.json();
+    if (!previewR.ok) throw new Error(previewData.error || `HTTP ${previewR.status}`);
 
-    addLog('success', `Connector created: ${connData.connector_name}`);
+    // Show modal
+    pendingConnectorPayload = payload;
+    document.getElementById('preview-connector-config').textContent = JSON.stringify(previewData.config, null, 2);
+    openModal('modal-preview-connector');
+    
+    // Close wizard since job is created
     _closeWizardSuccess();
+
   } catch (e) {
     showTestResult('wizard-create-error', 'error', e.message);
     addLog('error', `Create job+connector failed: ${e.message}`);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Создать Job и Коннектор'; }
+  }
+}
+
+let pendingConnectorPayload = null;
+
+async function confirmCreateConnector() {
+  const btn = document.getElementById('btn-confirm-connector');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating...'; }
+  clearTestResult('preview-connector-error');
+
+  try {
+    const connR = await fetch('/api/connectors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(pendingConnectorPayload),
+    });
+    const connData = await connR.json();
+    if (!connR.ok) throw new Error(connData.error || `HTTP ${connR.status}`);
+
+    addLog('success', `Connector created: ${connData.connector_name}`);
+    closeModal('modal-preview-connector');
+    loadConnectors(); // Refresh connectors list
+  } catch (e) {
+    showTestResult('preview-connector-error', 'error', e.message);
+    addLog('error', `Create connector failed: ${e.message}`);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Confirm'; }
   }
 }
 

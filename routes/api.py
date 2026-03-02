@@ -1653,6 +1653,12 @@ def create_connector():
             "value.converter.schemas.enable": "false",
         }
 
+        if data.get("preview"):
+            return jsonify({
+                "connector_name": connector_name,
+                "config": config
+            }), 200
+
         # Отправляем в Kafka Connect
         debezium_response = None
         debezium_status   = "CREATING"
